@@ -49,20 +49,67 @@ docker build -t typeroom .
 docker run --rm -p 8787:8787 --env-file .env typeroom
 ```
 
+### Alibaba Cloud ACR deployment
+
+Pushes to `main` and `v*` tags run `.github/workflows/docker-image.yml`. The workflow runs the full quality gate, builds `linux/amd64` and `linux/arm64`, and publishes these tags:
+
+```text
+crpi-u11hdbc769825d1d.cn-hangzhou.personal.cr.aliyuncs.com/sxlisme/ts-live-lab:latest
+crpi-u11hdbc769825d1d.cn-hangzhou.personal.cr.aliyuncs.com/sxlisme/ts-live-lab:sha-<commit>
+crpi-u11hdbc769825d1d.cn-hangzhou.personal.cr.aliyuncs.com/sxlisme/ts-live-lab:<version-tag>
+```
+
+The GitHub repository must define `ALIYUN_ACR_REGISTRY`, `ALIYUN_ACR_USERNAME`, `ALIYUN_ACR_PASSWORD`, and `ALIYUN_ACR_NAMESPACE` Actions secrets.
+
+Prepare the ECS deployment directory from this checkout:
+
+```bash
+mkdir -p /opt/ts-live-lab
+scp docker-compose.yml .env.example root@<server>:/opt/ts-live-lab/
+```
+
+On the server, create the runtime configuration and log in to ACR:
+
+```bash
+cd /opt/ts-live-lab
+cp .env.example .env
+vi .env
+
+docker login \
+  --username='<ACR username>' \
+  crpi-u11hdbc769825d1d.cn-hangzhou.personal.cr.aliyuncs.com
+
+docker compose pull
+docker compose up -d --no-build
+docker compose ps
+curl -fsS http://127.0.0.1:8787/api/health
+```
+
+The Compose service binds to `127.0.0.1:8787` by default. Put Nginx or Caddy in front of it for HTTPS. Set `ALLOWED_ORIGIN` to the public HTTPS origin and `TRUST_PROXY=true`. Do not expose `8787` in the cloud security group when a reverse proxy is used.
+
+Update and inspect the deployment with:
+
+```bash
+cd /opt/ts-live-lab
+docker compose pull
+docker compose up -d --no-build
+docker compose logs -f --tail=100
+```
+
 ## Configuration
 
-| Variable                   | Default                       | Purpose                                               |
-| -------------------------- | ----------------------------- | ----------------------------------------------------- |
-| `PORT`                     | `8787`                        | API and production web port                           |
-| `HOST`                     | `127.0.0.1`                   | API bind address                                      |
-| `ANTHROPIC_API_KEY`        | empty                         | Server-owned Claude key                               |
-| `ANTHROPIC_BASE_URL`       | `https://api.anthropic.com`   | Server-owned Anthropic-compatible API base URL        |
-| `CLAUDE_MODEL`             | `claude-sonnet-4-20250514`    | Default Claude model ID                               |
-| `ALLOW_CLIENT_AI_KEY`      | `true`                        | Accept a session-only key from the UI                 |
-| `ALLOW_CLIENT_AI_BASE_URL` | `true`                        | Let browser-owned keys select a validated public host |
-| `AI_ALLOWED_BASE_URLS`     | empty                         | Optional comma-separated exact base URL allowlist     |
-| `ALLOWED_ORIGIN`           | `http://localhost:5173`       | Comma-separated CORS origins                          |
-| `TRUST_PROXY`              | `false`                       | Trust one reverse proxy hop for client IPs            |
+| Variable                   | Default                     | Purpose                                               |
+| -------------------------- | --------------------------- | ----------------------------------------------------- |
+| `PORT`                     | `8787`                      | API and production web port                           |
+| `HOST`                     | `127.0.0.1`                 | API bind address                                      |
+| `ANTHROPIC_API_KEY`        | empty                       | Server-owned Claude key                               |
+| `ANTHROPIC_BASE_URL`       | `https://api.anthropic.com` | Server-owned Anthropic-compatible API base URL        |
+| `CLAUDE_MODEL`             | `claude-sonnet-4-20250514`  | Default Claude model ID                               |
+| `ALLOW_CLIENT_AI_KEY`      | `true`                      | Accept a session-only key from the UI                 |
+| `ALLOW_CLIENT_AI_BASE_URL` | `true`                      | Let browser-owned keys select a validated public host |
+| `AI_ALLOWED_BASE_URLS`     | empty                       | Optional comma-separated exact base URL allowlist     |
+| `ALLOWED_ORIGIN`           | `http://localhost:5173`     | Comma-separated CORS origins                          |
+| `TRUST_PROXY`              | `false`                     | Trust one reverse proxy hop for client IPs            |
 
 For a public deployment, read [SECURITY.md](./SECURITY.md) before enabling a server-owned AI key.
 
