@@ -8,6 +8,10 @@ const envSchema = z.object({
     .string()
     .default('false')
     .transform((value) => value === 'true'),
+  HTTPS_ONLY: z
+    .string()
+    .default('false')
+    .transform((value) => value === 'true'),
   ALLOWED_ORIGIN: z.string().default('http://localhost:5173'),
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_BASE_URL: z.string().url().default('https://api.anthropic.com'),

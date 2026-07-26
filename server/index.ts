@@ -28,8 +28,16 @@ if (config.TRUST_PROXY) app.set('trust proxy', 1)
 app.disable('x-powered-by')
 app.use(
   helmet({
-    contentSecurityPolicy: config.NODE_ENV === 'production' ? undefined : false,
+    contentSecurityPolicy:
+      config.NODE_ENV === 'production'
+        ? {
+            directives: {
+              'upgrade-insecure-requests': config.HTTPS_ONLY ? [] : null,
+            },
+          }
+        : false,
     crossOriginEmbedderPolicy: false,
+    strictTransportSecurity: config.HTTPS_ONLY ? undefined : false,
   }),
 )
 app.use(
