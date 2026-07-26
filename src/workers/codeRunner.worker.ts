@@ -8,6 +8,7 @@ const workerScope = self as DedicatedWorkerGlobalScope
 const safePostMessage = workerScope.postMessage.bind(workerScope)
 const MAX_LOGS = 200
 const MAX_OUTPUT_LENGTH = 4_000
+const MAX_SOURCE_LENGTH = 50_000
 let logSequence = 0
 let logCount = 0
 
@@ -104,8 +105,12 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   const startedAt = performance.now()
   logCount = 0
 
-  if (code.length > 50_000) {
-    post({ type: 'error', runId, message: '代码不能超过 50,000 个字符。' })
+  if (code.length > MAX_SOURCE_LENGTH) {
+    post({
+      type: 'error',
+      runId,
+      message: `代码不能超过 ${MAX_SOURCE_LENGTH.toLocaleString('en-US')} 个字符（当前 ${code.length.toLocaleString('en-US')} 个）。`,
+    })
     return
   }
 

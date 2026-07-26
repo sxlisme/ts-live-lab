@@ -31,6 +31,7 @@ app.use(
   helmet({
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
+    originAgentCluster: false,
     strictTransportSecurity: config.HTTPS_ONLY ? undefined : false,
   }),
 )
