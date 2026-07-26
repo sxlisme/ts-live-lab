@@ -5,6 +5,7 @@ import type {
   WorkerRequest,
   WorkerResponse,
 } from '@/types/runner'
+import { createRuntimeId } from '@/utils/createRuntimeId'
 import { computed, onUnmounted, ref } from 'vue'
 
 const RUN_TIMEOUT_MS = 2_000
@@ -55,7 +56,7 @@ export function useCodeRunner() {
     diagnostics.value = []
     duration.value = null
     status.value = 'compiling'
-    currentRunId = crypto.randomUUID()
+    currentRunId = createRuntimeId()
 
     worker = new Worker(new URL('../workers/codeRunner.worker.ts', import.meta.url), {
       type: 'module',

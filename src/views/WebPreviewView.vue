@@ -6,6 +6,7 @@ import { buildPreviewDocument } from '@/domain/preview/buildPreviewDocument'
 import { defaultWebPreview } from '@/data/webPreviewSample'
 import type { EditorLanguage } from '@/types/runner'
 import type { PreviewConsoleEntry, PreviewMessage, PreviewSource } from '@/types/preview'
+import { createRuntimeId } from '@/utils/createRuntimeId'
 import { useDebounceFn, useLocalStorage } from '@vueuse/core'
 import {
   Braces,
@@ -59,7 +60,7 @@ const statusText = computed(() => {
 
 function renderPreview() {
   try {
-    previewId.value = crypto.randomUUID()
+    previewId.value = createRuntimeId()
     previewStatus.value = 'loading'
     logs.value = []
     sourceDocument.value = buildPreviewDocument(source.value, previewId.value)
