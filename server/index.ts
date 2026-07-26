@@ -10,6 +10,7 @@ import { ZodError } from 'zod'
 import { mapAiUpstreamError } from './aiErrors.js'
 import { config } from './config.js'
 import { aiRouter } from './routes/ai.js'
+import { createContentSecurityPolicy } from './securityHeaders.js'
 import { ApiError } from './types.js'
 
 const app = express()
@@ -28,18 +29,14 @@ if (config.TRUST_PROXY) app.set('trust proxy', 1)
 app.disable('x-powered-by')
 app.use(
   helmet({
-    contentSecurityPolicy:
-      config.NODE_ENV === 'production'
-        ? {
-            directives: {
-              'upgrade-insecure-requests': config.HTTPS_ONLY ? [] : null,
-            },
-          }
-        : false,
+    contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
     strictTransportSecurity: config.HTTPS_ONLY ? undefined : false,
   }),
 )
+if (config.NODE_ENV === 'production') {
+  app.use(createContentSecurityPolicy(config.HTTPS_ONLY))
+}
 app.use(
   cors({
     origin: config.ALLOWED_ORIGIN.split(',').map((item) => item.trim()),
