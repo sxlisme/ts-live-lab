@@ -8,9 +8,9 @@ import type {
 import { createRuntimeId } from '@/utils/createRuntimeId'
 import { computed, onUnmounted, ref } from 'vue'
 
-const RUN_TIMEOUT_MS = 2_000
-const STARTUP_TIMEOUT_MS = 15_000
-const COMPILE_TIMEOUT_MS = 5_000
+const RUN_TIMEOUT_MS = 15_000
+const STARTUP_TIMEOUT_MS = 20_000
+const COMPILE_TIMEOUT_MS = 15_000
 
 export function useCodeRunner() {
   const status = ref<RunnerStatus>('idle')

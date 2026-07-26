@@ -17,7 +17,9 @@ test('terminates an infinite loop without freezing the page', async ({ page }) =
   await page.keyboard.insertText('while (true) {}')
   await page.locator('.run-button').click()
 
-  await expect(page.locator('.console-body')).toContainText('执行超过 2 秒', { timeout: 8_000 })
+  await expect(page.locator('.console-body')).toContainText('执行超过 15 秒', {
+    timeout: 22_000,
+  })
   await expect(page.getByRole('heading', { name: 'TS / JS 运行台' })).toBeVisible()
 })
 

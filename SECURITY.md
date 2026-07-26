@@ -8,7 +8,7 @@ User TypeScript and JavaScript never reaches the Node.js API. It is compiled and
 - Network APIs, external imports, nested workers, and external scripts are blocked.
 - Source size is capped at 50,000 characters.
 - Console output is capped at 200 entries and 4,000 characters per entry.
-- The parent page terminates the worker after 2 seconds, including when an infinite loop blocks the worker event loop.
+- The parent page allows up to 20 seconds for the worker bundle to start and terminates compilation or execution after 15 seconds, including when an infinite loop blocks the worker event loop.
 
 This protects the server and limits accidental browser lockups. A browser worker is not a multi-tenant hostile-code container: untrusted public users can still attempt short CPU or memory spikes in their own browser process. Do not move code execution to the API process. If server-side execution is added later, use isolated disposable containers or microVMs with CPU, memory, process, filesystem, and network limits.
 

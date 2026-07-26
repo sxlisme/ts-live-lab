@@ -5,7 +5,7 @@ TypeRoom 是一个可维护的 Vue 3 + TypeScript 在线学习与运行平台，
 ## 功能
 
 - 实时运行 TypeScript 和 JavaScript，并展示控制台输出
-- 一次性 Web Worker 沙箱、2 秒终止机制和网络能力阻断
+- 一次性 Web Worker 沙箱、20 秒启动超时、15 秒编译/执行终止机制和网络能力阻断
 - 隔离的 HTML/CSS/JavaScript 实时预览、响应式视口、控制台捕获和循环保护
 - 50 道 TypeScript 面试题，包含选择题、简答题和可执行编程题
 - 在浏览器本地保存练习进度和答案

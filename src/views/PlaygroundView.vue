@@ -50,7 +50,7 @@ onMounted(execute)
     <PageHeading
       eyebrow="PLAYGROUND"
       title="TS / JS 运行台"
-      description="代码保存在当前浏览器。运行任务超过 2 秒会被强制终止。"
+      description="代码保存在当前浏览器。运行任务超过 15 秒会被强制终止。"
     >
       <template #actions>
         <span class="sandbox-badge"><ShieldCheck :size="15" /> 隔离执行</span>
