@@ -1,5 +1,5 @@
 import { apiRequest } from '@/services/api'
-import type { AiReview, ClaudeConfig, ReviewRequest } from '@/types/ai'
+import type { AiReview, ClaudeConfig, ReviewRequest, SnippetNameRequest } from '@/types/ai'
 
 function headers(config: ClaudeConfig): HeadersInit {
   return {
@@ -23,4 +23,13 @@ export async function checkClaudeConnection(config: ClaudeConfig) {
     headers: headers(config),
     body: JSON.stringify({ model: config.model, baseUrl: config.baseUrl }),
   })
+}
+
+export async function requestSnippetName(input: SnippetNameRequest, config: ClaudeConfig) {
+  const response = await apiRequest<{ name: string }>('/api/ai/snippet-name', {
+    method: 'POST',
+    headers: headers(config),
+    body: JSON.stringify({ ...input, model: config.model, baseUrl: config.baseUrl }),
+  })
+  return response.name
 }

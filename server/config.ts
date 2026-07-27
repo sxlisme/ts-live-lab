@@ -13,6 +13,16 @@ const envSchema = z.object({
     .default('false')
     .transform((value) => value === 'true'),
   ALLOWED_ORIGIN: z.string().default('http://localhost:5173'),
+  DATABASE_URL: z.string().default('memory:'),
+  DATABASE_SSL: z
+    .string()
+    .default('false')
+    .transform((value) => value === 'true'),
+  ALLOW_EPHEMERAL_DATABASE: z
+    .string()
+    .default('false')
+    .transform((value) => value === 'true'),
+  SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_BASE_URL: z.string().url().default('https://api.anthropic.com'),
   CLAUDE_MODEL: z.string().default('claude-sonnet-4-20250514'),
@@ -27,7 +37,19 @@ const envSchema = z.object({
   AI_ALLOWED_BASE_URLS: z.string().default(''),
 })
 
-const parsed = envSchema.safeParse(process.env)
+const parsed = envSchema.superRefine((value, context) => {
+  if (
+    value.NODE_ENV === 'production' &&
+    value.DATABASE_URL === 'memory:' &&
+    !value.ALLOW_EPHEMERAL_DATABASE
+  ) {
+    context.addIssue({
+      code: 'custom',
+      path: ['DATABASE_URL'],
+      message: '生产环境必须配置持久化 PostgreSQL DATABASE_URL。',
+    })
+  }
+}).safeParse(process.env)
 if (!parsed.success) {
   console.error('Invalid environment configuration:', parsed.error.flatten().fieldErrors)
   process.exit(1)

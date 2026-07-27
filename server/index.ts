@@ -2,6 +2,7 @@ import 'dotenv/config'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import compression from 'compression'
+import cookieParser from 'cookie-parser'
 import cors from 'cors'
 import express, { type ErrorRequestHandler } from 'express'
 import { rateLimit } from 'express-rate-limit'
@@ -9,7 +10,10 @@ import helmet from 'helmet'
 import { ZodError } from 'zod'
 import { mapAiUpstreamError } from './aiErrors.js'
 import { config } from './config.js'
+import { database, initializeDatabase } from './database.js'
 import { aiRouter } from './routes/ai.js'
+import { authRouter } from './routes/auth.js'
+import { snippetsRouter } from './routes/snippets.js'
 import { createContentSecurityPolicy } from './securityHeaders.js'
 import { ApiError } from './types.js'
 
@@ -41,11 +45,12 @@ if (config.NODE_ENV === 'production') {
 app.use(
   cors({
     origin: config.ALLOWED_ORIGIN.split(',').map((item) => item.trim()),
-    methods: ['GET', 'POST'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'X-Claude-Key'],
   }),
 )
 app.use(compression())
+app.use(cookieParser())
 app.use((request, response, next) => {
   if (request.header('sec-fetch-site') === 'cross-site') {
     response.status(403).json({ error: { code: 'CROSS_SITE_BLOCKED', message: '拒绝跨站请求。' } })
@@ -54,13 +59,28 @@ app.use((request, response, next) => {
   next()
 })
 app.use('/api', apiLimiter)
-app.use(express.json({ limit: '32kb', strict: true }))
+app.use(express.json({ limit: '96kb', strict: true }))
 
-app.get('/api/health', (_request, response) => response.json({ ok: true }))
+app.get('/api/health', async (_request, response) => {
+  await database.query('SELECT 1')
+  response.json({ ok: true })
+})
+app.use('/api/auth', authRouter)
+app.use('/api/snippets', snippetsRouter)
 app.use('/api/ai', aiRouter)
 
 if (config.NODE_ENV === 'production') {
-  app.use(express.static(webDirectory, { index: false, maxAge: '1d' }))
+  app.use(
+    express.static(webDirectory, {
+      index: false,
+      maxAge: '1d',
+      setHeaders(response, filePath) {
+        if (path.basename(filePath) === 'preview-sandbox.html') {
+          response.setHeader('Cache-Control', 'no-cache')
+        }
+      },
+    }),
+  )
   app.get('/{*splat}', (_request, response) =>
     response.sendFile(path.join(webDirectory, 'index.html')),
   )
@@ -74,7 +94,7 @@ const errorHandler: ErrorRequestHandler = (error, request, response, _next) => {
   if (httpStatus === 413) {
     response
       .status(413)
-      .json({ error: { code: 'PAYLOAD_TOO_LARGE', message: '请求内容不能超过 32 KB。' } })
+      .json({ error: { code: 'PAYLOAD_TOO_LARGE', message: '请求内容不能超过 96 KB。' } })
     return
   }
   if (error instanceof SyntaxError && httpStatus === 400) {
@@ -121,6 +141,24 @@ const errorHandler: ErrorRequestHandler = (error, request, response, _next) => {
 
 app.use(errorHandler)
 
-app.listen(config.PORT, config.HOST, () => {
-  console.log(`TypeRoom API listening on http://${config.HOST}:${config.PORT}`)
+async function start() {
+  await initializeDatabase()
+  const server = app.listen(config.PORT, config.HOST, () => {
+    console.log(`TypeRoom API listening on http://${config.HOST}:${config.PORT}`)
+  })
+
+  async function shutdown() {
+    server.close(async () => {
+      await database.end()
+      process.exit(0)
+    })
+  }
+
+  process.once('SIGTERM', shutdown)
+  process.once('SIGINT', shutdown)
+}
+
+start().catch((error) => {
+  console.error('Failed to initialize application:', error)
+  process.exit(1)
 })

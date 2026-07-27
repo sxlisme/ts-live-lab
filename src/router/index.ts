@@ -16,6 +16,12 @@ export const router = createRouter({
       meta: { title: 'Web 预览' },
     },
     {
+      path: '/snippets',
+      name: 'snippets',
+      component: () => import('@/views/SnippetsView.vue'),
+      meta: { title: '代码片段' },
+    },
+    {
       path: '/practice',
       name: 'practice',
       component: () => import('@/views/PracticeView.vue'),

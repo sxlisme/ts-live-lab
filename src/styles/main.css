@@ -193,7 +193,96 @@ select:focus-visible {
 .sidebar-footer {
   justify-content: space-between;
   gap: 8px;
+  margin-top: 10px;
+}
+
+.sidebar-account {
   margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid #26322b;
+}
+
+.account-user,
+.account-login {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  align-items: center;
+  gap: 9px;
+  color: #d9e3dc;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+
+.account-login {
+  padding: 0 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.account-login:hover {
+  color: #ffffff;
+  background: #1b241f;
+  border-color: #2b3830;
+}
+
+.account-user {
+  padding: 0 5px;
+}
+
+.account-user > span {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  color: var(--charcoal);
+  background: var(--mint);
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.account-user strong {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-user button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  place-items: center;
+  color: #98a89e;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.account-user button:hover {
+  color: #ffffff;
+  background: rgb(255 255 255 / 8%);
+}
+
+.sidebar-collapsed .sidebar-account {
+  display: grid;
+  place-items: center;
+}
+
+.sidebar-collapsed .account-login,
+.sidebar-collapsed .account-user {
+  width: 40px;
+  justify-content: center;
+  padding: 0;
 }
 
 .runtime-note {

@@ -9,6 +9,8 @@ TypeRoom 是一个可维护的 Vue 3 + TypeScript 在线学习与运行平台，
 - 隔离的 HTML/CSS/JavaScript 实时预览、响应式视口、控制台捕获和循环保护
 - 50 道 TypeScript 面试题，包含选择题、简答题和可执行编程题
 - 在浏览器本地保存练习进度和答案
+- 匿名可使用全部学习与运行功能，登录后将代码片段持久保存到个人数据库空间
+- 代码片段支持创建、更新、搜索、删除和 AI 自动命名
 - Claude 答案审查代理，支持参数校验、请求大小限制和限流
 - 支持用户配置第三方 Key、API 上游地址和自定义模型 ID
 - 16 章中文 TypeScript 手册，包含分类导航、示例和官方资料来源
@@ -17,7 +19,7 @@ TypeRoom 是一个可维护的 Vue 3 + TypeScript 在线学习与运行平台，
 ## 技术栈
 
 - 前端：Vue 3、TypeScript、Vite、Vue Router、CodeMirror 6
-- API：Node.js 20、Express 5、Anthropic SDK、Zod
+- API：Node.js 20、Express 5、PostgreSQL、bcrypt、Anthropic SDK、Zod
 - 质量工具：vue-tsc、ESLint、Vitest、Prettier
 - 部署：Docker、Docker Compose、GitHub Actions、阿里云 ACR、Nginx
 
@@ -33,6 +35,8 @@ npm run dev
 
 访问 `http://127.0.0.1:5173`。Vite 会把 `/api` 请求代理到 `8787` 端口的 API 服务。
 
+本地开发默认使用进程内 PostgreSQL 兼容数据库，重启 API 后数据会清空。需要验证真实持久化时，在 `.env` 中配置本地 PostgreSQL `DATABASE_URL`。
+
 没有 Claude Key 时应用仍可运行。需要启用 AI 审查时，可以在 `.env` 中设置 `ANTHROPIC_API_KEY`，也可以保留 `ALLOW_CLIENT_AI_KEY=true`，让用户在 AI 设置页面填写仅当前浏览器会话使用的 Key。
 
 ## 生产构建
@@ -40,7 +44,7 @@ npm run dev
 ```bash
 npm run check
 npm run build
-NODE_ENV=production npm start
+NODE_ENV=production DATABASE_URL=postgresql://user:password@127.0.0.1:5432/typeroom npm start
 ```
 
 `npm run build` 会把前端产物输出到 `dist/`，把 Node.js API 输出到 `dist-server/`。生产 API 同时提供前端静态文件和 `/api` 接口。
@@ -49,11 +53,12 @@ NODE_ENV=production npm start
 
 项目默认使用 `HTTPS_ONLY=false`，适配尚未配置证书的 HTTP 环境，不会把 JS/CSS 请求自动升级为 HTTPS。完成 Nginx HTTPS 配置后再设置 `HTTPS_ONLY=true`。
 
-本地 Docker 构建：
+本地 Docker Compose 构建会同时启动 PostgreSQL：
 
 ```bash
-docker build -t ts-live-lab-local .
-docker run --rm -p 127.0.0.1:8787:8787 --env-file .env ts-live-lab-local
+cp .env.example .env
+# 先把 .env 中的 POSTGRES_PASSWORD 换成长随机十六进制值
+docker compose up -d --build
 ```
 
 ## 阿里云 ACR 部署
@@ -115,6 +120,10 @@ docker compose logs -f --tail=100 app
 | `APP_IMAGE`                | 当前 ACR `latest` 镜像      | Compose 拉取的镜像地址                           |
 | `BIND_ADDRESS`             | `127.0.0.1`                 | 宿主机端口绑定地址                               |
 | `WEB_PORT`                 | `8787`                      | 宿主机应用端口                                   |
+| `POSTGRES_PASSWORD`        | 无                          | PostgreSQL 用户密码，首次启动前生成并长期保管    |
+| `DATABASE_URL`             | 开发环境为内存数据库        | PostgreSQL 连接地址，生产环境必须配置            |
+| `DATABASE_SSL`             | `false`                     | 连接云数据库时是否校验证书 TLS                   |
+| `SESSION_TTL_DAYS`         | `30`                        | 登录会话有效天数，范围 1–90                      |
 | `PORT`                     | `8787`                      | 容器内 API 和生产页面端口                        |
 | `HOST`                     | `127.0.0.1`                 | Node.js API 监听地址，Compose 会覆盖为 `0.0.0.0` |
 | `ANTHROPIC_API_KEY`        | 空                          | 服务器持有的 Claude 或兼容接口 Key               |
@@ -136,6 +145,7 @@ docker compose logs -f --tail=100 app
 - Web 预览组装和安全策略位于 `src/domain/preview/buildPreviewDocument.ts`，iframe 生命周期和心跳检测位于 `src/components/preview/PreviewFrame.vue`。
 - 运行沙箱策略位于 `src/domain/runner/security.ts`，Worker 调度位于 `src/composables/useCodeRunner.ts`。
 - AI 前端请求位于 `src/services/aiReview.ts`，服务端路由位于 `server/routes/ai.ts`；上游地址标准化、网络地址检查和 DNS 固定逻辑位于 `server/aiBaseUrl.ts`。
+- 用户、会话和片段表在 `server/database.ts` 初始化；认证边界位于 `server/auth.ts`，片段所有权查询位于 `server/snippets.ts`。
 - 通用 UI 组件放在 `src/components/ui`，业务组件保留在各自功能目录中。
 
 ## 质量检查命令

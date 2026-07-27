@@ -52,10 +52,12 @@ const editorTheme = EditorView.theme(
       border: 'none',
       paddingLeft: '6px',
     },
-    '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: '#18231d' },
+    '.cm-activeLine': { backgroundColor: 'rgb(116 163 139 / 10%)' },
+    '.cm-activeLineGutter': { backgroundColor: '#18231d' },
     '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
       backgroundColor: '#315744 !important',
     },
+    '.cm-line::selection, .cm-line *::selection': { color: '#f4fbf7' },
     '.cm-cursor': { borderLeftColor: '#9fe3c2' },
     '.cm-scroller': { overflow: 'auto' },
     '.cm-tooltip': { border: '1px solid #39483f', backgroundColor: '#1a241e' },

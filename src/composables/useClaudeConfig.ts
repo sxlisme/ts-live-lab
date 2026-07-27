@@ -18,12 +18,13 @@ export const useClaudeConfig = createGlobalState(() => {
   const serverStatus = ref<AiServerStatus | null>(null)
   const statusLoading = ref(false)
 
-  const canReview = computed(() =>
+  const canUseAi = computed(() =>
     Boolean(
       serverStatus.value?.serverConfigured ||
       (serverStatus.value?.allowClientKey && config.value.apiKey),
     ),
   )
+  const canReview = canUseAi
 
   async function loadServerStatus() {
     statusLoading.value = true
@@ -32,10 +33,7 @@ export const useClaudeConfig = createGlobalState(() => {
       if (config.value.model === DEFAULT_MODEL && serverStatus.value.defaultModel) {
         config.value.model = serverStatus.value.defaultModel
       }
-      if (
-        !serverStatus.value.allowClientBaseUrl ||
-        config.value.baseUrl === DEFAULT_BASE_URL
-      ) {
+      if (!serverStatus.value.allowClientBaseUrl || config.value.baseUrl === DEFAULT_BASE_URL) {
         config.value.baseUrl = serverStatus.value.defaultBaseUrl
       }
     } finally {
@@ -55,6 +53,7 @@ export const useClaudeConfig = createGlobalState(() => {
     config,
     serverStatus,
     statusLoading,
+    canUseAi,
     canReview,
     loadServerStatus,
     updateConfig,

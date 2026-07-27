@@ -24,7 +24,20 @@ function loadDocument() {
   timedOut = false
   startedAt = Date.now()
   lastHeartbeat = 0
-  frame.value.srcdoc = props.sourceDocument
+  frame.value.src = `/preview-sandbox.html?preview=${encodeURIComponent(props.previewId)}`
+}
+
+function onFrameLoad() {
+  emit('loaded')
+  if (timedOut || !frame.value?.contentWindow) return
+  frame.value.contentWindow.postMessage(
+    {
+      marker: 'typeroom-preview-host',
+      type: 'render',
+      sourceDocument: props.sourceDocument,
+    },
+    '*',
+  )
 }
 
 function onMessage(event: MessageEvent<unknown>) {
@@ -43,7 +56,7 @@ function checkHeartbeat() {
   if (Date.now() - lastSignal <= 2_200) return
   timedOut = true
   if (frame.value) {
-    frame.value.srcdoc = '<!doctype html><body></body>'
+    frame.value.src = 'about:blank'
   }
   emit('timeout')
 }
@@ -68,7 +81,7 @@ onBeforeUnmount(() => {
     class="preview-frame"
     sandbox="allow-scripts"
     title="网页预览"
-    @load="$emit('loaded')"
+    @load="onFrameLoad"
   />
 </template>
 

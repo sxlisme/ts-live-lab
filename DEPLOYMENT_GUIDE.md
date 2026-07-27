@@ -64,7 +64,7 @@
 | GitHub Actions | 检查、测试、构建镜像并推送 ACR       | 当前不自动登录 ECS 部署                 |
 | ACR            | 保存已经构建好的镜像及不同 Tag       | 不保存完整 Git 开发历史                 |
 | ECS/个人服务器 | 拉取镜像并运行容器                   | 不需要再次编译 Vue/TypeScript           |
-| Docker Compose | 记录镜像、端口、环境变量和安全限制   | 不构建业务代码，服务器使用 `--no-build` |
+| Docker Compose | 编排应用、PostgreSQL、端口和数据卷   | 不构建业务代码，服务器使用 `--no-build` |
 | Nginx          | 接收公网 HTTP/HTTPS 请求并转发到应用 | 不运行 Node.js 业务逻辑                 |
 | Certbot        | 申请并续期 Let's Encrypt HTTPS 证书  | 不托管应用                              |
 
@@ -78,7 +78,10 @@ flowchart LR
     D -->|通过后 docker buildx| E[Docker 镜像]
     E -->|docker push| F[阿里云 ACR]
     F -->|docker compose pull| G[Debian 12 ECS]
-    G --> H[Docker 容器 127.0.0.1:8787]
+    G --> H[应用容器 127.0.0.1:8787]
+    G --> L[PostgreSQL 容器]
+    L --> M[typeroom-db 数据卷]
+    H --> L
     I[浏览器] -->|HTTPS 443| J[Nginx]
     J -->|反向代理| H
     H -->|可选 AI 请求| K[Claude 或第三方兼容 API]
@@ -444,7 +447,7 @@ dist/          Vue 前端静态资源
 dist-server/   Express API 编译结果
 ```
 
-Node.js API 同时提供 `/api/*` 接口和前端静态文件，因此这里只需要一个容器和一个内部端口。
+Node.js API 同时提供 `/api/*` 接口和前端静态文件。运行时由 Compose 启动应用和 PostgreSQL 两个容器；只有应用容器的 `8787` 端口映射到宿主机，数据库仅在 Compose 内部网络中访问。
 
 ### 7.3 镜像中的安全设置
 
@@ -472,9 +475,11 @@ coverage
 镜像只描述“应用内容”，Compose 描述“应用怎样运行”，包括：
 
 - 使用哪个镜像。
+- 如何启动 PostgreSQL 并等待数据库健康。
 - 容器退出后是否重启。
 - 加载哪个 `.env`。
 - 宿主机与容器的端口映射。
+- 持久化数据库使用哪个 named volume。
 - 健康检查。
 - 日志轮转。
 - 只读文件系统和权限限制。
@@ -525,6 +530,8 @@ docker compose up -d --no-build
 | `APP_IMAGE`                | 当前 ACR 完整镜像地址                    | Compose 拉取的镜像                   |
 | `BIND_ADDRESS`             | `127.0.0.1`                              | 只允许 Nginx 和服务器本机访问 8787   |
 | `WEB_PORT`                 | `8787`                                   | 宿主机本地监听端口                   |
+| `POSTGRES_PASSWORD`        | 首次部署生成的长随机十六进制值           | PostgreSQL 密码，初始化后长期保管    |
+| `SESSION_TTL_DAYS`         | `30`                                     | 登录会话有效天数，范围 1–90          |
 | `ALLOWED_ORIGIN`           | `https://ts.example.com`                 | 允许的浏览器来源，多个用逗号分隔     |
 | `TRUST_PROXY`              | `true`                                   | 使用 Nginx 时信任一个反向代理跳数    |
 | `HTTPS_ONLY`               | HTTP 用 `false`，HTTPS 用 `true`         | 是否启用 HSTS 和资源 HTTPS 自动升级  |
@@ -652,6 +659,9 @@ APP_IMAGE=crpi-u11hdbc769825d1d.cn-hangzhou.personal.cr.aliyuncs.com/sxlisme/ts-
 BIND_ADDRESS=127.0.0.1
 WEB_PORT=8787
 
+# 执行 openssl rand -hex 32 生成，首次启动后不要随意修改
+POSTGRES_PASSWORD=CHANGE_TO_A_LONG_RANDOM_HEX_VALUE
+
 ALLOWED_ORIGIN=http://CHANGE_ME
 TRUST_PROXY=true
 HTTPS_ONLY=false
@@ -694,6 +704,25 @@ x-logging: &default-logging
     max-file: "5"
 
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: typeroom
+      POSTGRES_DB: typeroom
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - typeroom-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+
   app:
     image: ${APP_IMAGE}
     restart: unless-stopped
@@ -704,6 +733,11 @@ services:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: 8787
+      DATABASE_URL: postgresql://typeroom:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/typeroom
+      DATABASE_SSL: "false"
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-8787}:8787"
     read_only: true
@@ -724,6 +758,9 @@ services:
       retries: 5
       start_period: 10s
     logging: *default-logging
+
+volumes:
+  typeroom-db:
 EOF
 ```
 
@@ -768,6 +805,7 @@ sudo docker compose ps
 命令含义：
 
 - `pull`：从 ACR 下载 `.env` 中指定的镜像。
+- `pull` 也会从公共镜像仓库下载 PostgreSQL 16；服务器无需安装 PostgreSQL 软件包。
 - `up -d`：在后台创建或更新容器。
 - `--no-build`：禁止服务器尝试从源码构建。
 - `ps`：查看容器状态和健康状态。
@@ -795,6 +833,33 @@ sudo docker inspect --format='{{.State.Health.Status}}' ts-live-lab-app-1
 ```
 
 容器名称可能因 Compose 版本略有不同，以 `docker compose ps` 显示的名称为准。
+
+数据库容器应显示为 `healthy`。应用只有在数据库健康后才启动，用户、会话和代码片段保存在 `typeroom-db` named volume 中，更新应用镜像不会删除该卷。
+
+### 10.7 备份和恢复 PostgreSQL
+
+创建 PostgreSQL 自定义格式备份：
+
+```bash
+sudo mkdir -p /opt/ts-live-lab/backups
+cd /opt/ts-live-lab
+sudo docker compose exec -T db pg_dump -U typeroom -d typeroom \
+  --format=custom --no-owner --no-acl \
+  > backups/typeroom-$(date +%Y%m%d-%H%M%S).dump
+```
+
+恢复会覆盖当前数据库内容。先在非生产环境验证备份，恢复前停止应用写入，并明确选择一个 `.dump` 文件：
+
+```bash
+cd /opt/ts-live-lab
+sudo docker compose stop app
+sudo docker compose exec -T db pg_restore -U typeroom -d typeroom \
+  --clean --if-exists --no-owner --no-acl \
+  < backups/你的备份文件.dump
+sudo docker compose start app
+```
+
+`--clean --if-exists` 会先删除备份中已有的数据库对象，再按备份重建，因此不要对错误的服务器或数据库执行。恢复命令失败时先检查日志和数据，不要立即启动应用。生产环境应通过定时任务把备份复制到另一台机器或对象存储；只保存在同一块 ECS 系统盘上的备份无法应对磁盘损坏。
 
 ## 11. 配置 Nginx 和 HTTPS
 
@@ -1138,7 +1203,7 @@ sudo docker compose stop
 sudo docker compose start
 ```
 
-不要随意执行带 `-v` 的 `docker compose down`，也不要在不理解影响时执行大范围 `docker system prune -a`。当前应用没有数据库卷，但后续扩展项目时这些命令可能删除重要数据或回滚镜像。
+不要执行带 `-v` 的 `docker compose down -v`，它会删除 `typeroom-db` 数据库卷以及所有账号和代码片段。也不要在不理解影响时执行大范围 `docker system prune -a --volumes`。普通的 `docker compose down`、`pull` 和 `up -d` 不会删除 named volume。
 
 ## 16. 常见问题排查
 
@@ -1317,6 +1382,7 @@ AI 审查时：
 | `docker-compose.yml`                 | 仓库/服务器                   | 定义容器怎样运行         | 否                 |
 | `.env.example`                       | GitHub 仓库                   | 环境变量无密钥模板       | 否                 |
 | `.env`                               | 只在服务器                    | 真实环境变量和可选密钥   | 否，且禁止提交     |
+| `typeroom-db` Docker volume          | 服务器 Docker 数据目录        | 用户、会话和代码片段     | 否，必须单独备份   |
 | Nginx site 文件                      | `/etc/nginx/sites-available/` | HTTPS 入口和反向代理     | 否                 |
 | Docker 登录配置                      | root 的 Docker 配置目录       | 保存 ACR 登录认证        | 否，禁止复制到仓库 |
 

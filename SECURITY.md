@@ -11,6 +11,10 @@ User TypeScript and JavaScript never reaches the Node.js API. It is compiled and
 - The parent page allows up to 20 seconds for the worker bundle to start and terminates compilation or execution after 15 seconds, including when an infinite loop blocks the worker event loop.
 - The main document keeps `unsafe-eval` disabled. Production CSP enables it only on the hashed code-runner Worker response because that isolated Worker must evaluate the transpiled user program.
 - Origin-keyed agent clusters are disabled because the application does not depend on them and supports plain HTTP/IP deployments where cluster-mode history can otherwise produce inconsistent browser warnings.
+- AI snippet naming sends at most 8,000 characters through the existing rate-limited AI proxy. Source code is treated as untrusted prompt data and is never executed by the server.
+- Passwords are bcrypt-hashed and never returned to the browser. Authentication uses random opaque session tokens stored as SHA-256 hashes in PostgreSQL and sent only through an HttpOnly, SameSite=Lax cookie.
+- Snippet reads and writes are scoped by the authenticated user ID. PostgreSQL data lives in a dedicated Docker volume; the application container remains read-only.
+- Web preview code is delivered to a dedicated opaque-origin iframe through `postMessage`. Only the sandbox document receives an inline-script CSP exception; the main application policy remains strict, and the sandbox blocks network connections, nested frames, forms, and parent-page access.
 
 This protects the server and limits accidental browser lockups. A browser worker is not a multi-tenant hostile-code container: untrusted public users can still attempt short CPU or memory spikes in their own browser process. Do not move code execution to the API process. If server-side execution is added later, use isolated disposable containers or microVMs with CPU, memory, process, filesystem, and network limits.
 

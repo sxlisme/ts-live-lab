@@ -26,3 +26,8 @@ export interface ReviewRequest {
   keyPoints: string[]
   answer: string
 }
+
+export interface SnippetNameRequest {
+  language: 'typescript' | 'javascript'
+  code: string
+}

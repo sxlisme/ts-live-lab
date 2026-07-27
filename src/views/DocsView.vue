@@ -335,7 +335,7 @@ onBeforeUnmount(() => topicObserver?.disconnect())
 .docs-layout {
   display: grid;
   align-items: start;
-  grid-template-columns: 224px minmax(620px, 1fr) 190px;
+  grid-template-columns: 240px minmax(620px, 1fr) 210px;
   gap: 24px;
 }
 
@@ -371,7 +371,7 @@ onBeforeUnmount(() => topicObserver?.disconnect())
   background: transparent;
   border: 0;
   outline: 0;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .docs-sidebar > nav {
@@ -390,7 +390,7 @@ onBeforeUnmount(() => topicObserver?.disconnect())
   margin: 0 0 6px;
   color: #7b8a80;
   font:
-    600 10px/1.4 'DM Mono',
+    600 12px/1.4 'DM Mono',
     monospace;
   text-transform: uppercase;
 }
@@ -398,7 +398,7 @@ onBeforeUnmount(() => topicObserver?.disconnect())
 .docs-nav-group > button {
   display: flex;
   width: 100%;
-  min-height: 35px;
+  min-height: 38px;
   align-items: center;
   gap: 9px;
   padding: 0 9px;
@@ -407,7 +407,8 @@ onBeforeUnmount(() => topicObserver?.disconnect())
   border: 0;
   border-left: 2px solid transparent;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 13px;
+  line-height: 1.45;
   text-align: left;
 }
 
@@ -426,14 +427,14 @@ onBeforeUnmount(() => topicObserver?.disconnect())
 .docs-nav-group button span {
   color: #91a097;
   font:
-    500 9px/1 'DM Mono',
+    500 10px/1 'DM Mono',
     monospace;
 }
 
 .no-docs-result {
   padding: 24px 8px;
   color: var(--ink-soft);
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .docs-version {
@@ -445,7 +446,7 @@ onBeforeUnmount(() => topicObserver?.disconnect())
   padding: 12px 8px;
   color: var(--ink-soft);
   border-top: 1px solid var(--line);
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .docs-version svg {
@@ -768,8 +769,8 @@ onBeforeUnmount(() => topicObserver?.disconnect())
   border: 0;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 10px;
-  line-height: 1.45;
+  font-size: 12px;
+  line-height: 1.5;
   text-align: left;
 }
 
@@ -785,7 +786,7 @@ onBeforeUnmount(() => topicObserver?.disconnect())
 
 @media (max-width: 1280px) {
   .docs-layout {
-    grid-template-columns: 210px minmax(580px, 1fr);
+    grid-template-columns: 226px minmax(580px, 1fr);
   }
 
   .page-toc {
@@ -816,7 +817,7 @@ onBeforeUnmount(() => topicObserver?.disconnect())
     border: 1px solid var(--line);
     border-radius: 6px;
     cursor: pointer;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
   }
 

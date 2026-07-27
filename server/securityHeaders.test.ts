@@ -1,4 +1,8 @@
-import { contentSecurityPolicyDirectives, isCodeRunnerWorkerPath } from './securityHeaders'
+import {
+  contentSecurityPolicyDirectives,
+  isCodeRunnerWorkerPath,
+  isPreviewSandboxPath,
+} from './securityHeaders'
 
 describe('security headers', () => {
   it('recognizes only the hashed production code runner worker path', () => {
@@ -6,6 +10,12 @@ describe('security headers', () => {
     expect(isCodeRunnerWorkerPath('/assets/codeRunner.worker.js')).toBe(false)
     expect(isCodeRunnerWorkerPath('/assets/index-CrUQCbYT.js')).toBe(false)
     expect(isCodeRunnerWorkerPath('/api/codeRunner.worker-CrUQCbYT.js')).toBe(false)
+  })
+
+  it('matches only the dedicated preview sandbox document', () => {
+    expect(isPreviewSandboxPath('/preview-sandbox.html')).toBe(true)
+    expect(isPreviewSandboxPath('/preview-sandbox.html.js')).toBe(false)
+    expect(isPreviewSandboxPath('/assets/preview-sandbox.html')).toBe(false)
   })
 
   it('keeps unsafe-eval disabled for the main application policy', () => {

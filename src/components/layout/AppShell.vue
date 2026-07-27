@@ -1,11 +1,16 @@
 <script setup lang="ts">
+import AuthDialog from '@/components/auth/AuthDialog.vue'
+import { useAuth } from '@/composables/useAuth'
 import {
   BookOpenText,
   Bot,
   Braces,
   Code2,
   LayoutPanelTop,
+  Library,
   Menu,
+  LogIn,
+  LogOut,
   PanelLeftClose,
   PanelLeftOpen,
   X,
@@ -15,9 +20,11 @@ import { RouterLink, RouterView } from 'vue-router'
 
 const isCollapsed = ref(false)
 const isMobileOpen = ref(false)
+const { user, loadSession, logout, openAuthDialog } = useAuth()
 
 const navItems = [
   { to: '/', label: '运行台', icon: Code2 },
+  { to: '/snippets', label: '代码片段', icon: Library },
   { to: '/web-preview', label: 'Web 预览', icon: LayoutPanelTop },
   { to: '/practice', label: '面试练习', icon: Braces },
   { to: '/docs', label: 'TS 文档', icon: BookOpenText },
@@ -32,7 +39,10 @@ function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') closeMobile()
 }
 
-onMounted(() => window.addEventListener('keydown', onKeydown))
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+  loadSession().catch(() => undefined)
+})
 onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
@@ -83,6 +93,32 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
         </RouterLink>
       </nav>
 
+      <div class="sidebar-account">
+        <div v-if="user" class="account-user" :title="isCollapsed ? user.username : undefined">
+          <span>{{ [...user.username][0]?.toUpperCase() }}</span>
+          <strong v-if="!isCollapsed">{{ user.username }}</strong>
+          <button
+            v-if="!isCollapsed"
+            type="button"
+            title="退出登录"
+            aria-label="退出登录"
+            @click="logout"
+          >
+            <LogOut :size="16" />
+          </button>
+        </div>
+        <button
+          v-else
+          class="account-login"
+          type="button"
+          :title="isCollapsed ? '登录' : undefined"
+          @click="openAuthDialog('login')"
+        >
+          <LogIn :size="17" />
+          <span v-if="!isCollapsed">登录</span>
+        </button>
+      </div>
+
       <div class="sidebar-footer">
         <div v-if="!isCollapsed" class="runtime-note">
           <span class="status-dot" />
@@ -108,5 +144,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
         </Transition>
       </RouterView>
     </main>
+    <AuthDialog />
   </div>
 </template>

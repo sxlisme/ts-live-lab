@@ -2,8 +2,13 @@ import type { Request, Response } from 'express'
 import { Router } from 'express'
 import { rateLimit } from 'express-rate-limit'
 import { z } from 'zod'
-import { modelIdSchema } from '../aiValidation.js'
-import { createClaudeClient, resolveClaudeConnection, reviewAnswer } from '../claude.js'
+import { modelIdSchema, snippetNameRequestSchema } from '../aiValidation.js'
+import {
+  createClaudeClient,
+  generateSnippetName,
+  resolveClaudeConnection,
+  reviewAnswer,
+} from '../claude.js'
 import { config } from '../config.js'
 import { ApiError } from '../types.js'
 
@@ -70,6 +75,13 @@ router.post('/review', aiLimiter, async (request: Request, response: Response) =
   const connection = await resolveClaudeConnection(clientKey(request), input.baseUrl)
   const result = await reviewAnswer({ ...input, ...connection })
   response.json({ review: result })
+})
+
+router.post('/snippet-name', aiLimiter, async (request: Request, response: Response) => {
+  const input = snippetNameRequestSchema.parse(request.body)
+  const connection = await resolveClaudeConnection(clientKey(request), input.baseUrl)
+  const name = await generateSnippetName({ ...input, ...connection })
+  response.json({ name })
 })
 
 export { router as aiRouter }
