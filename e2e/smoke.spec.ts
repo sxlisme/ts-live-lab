@@ -71,6 +71,18 @@ test('requires login, then saves, reopens, updates, and deletes a code snippet',
   page.once('dialog', (confirmation) => confirmation.accept())
   await page.getByRole('button', { name: '删除 Result 类型练习' }).click()
   await expect(page.getByRole('heading', { name: '还没有保存代码片段' })).toBeVisible()
+
+  if (testInfo.project.name.includes('mobile')) {
+    await page.getByRole('button', { name: '打开导航' }).click()
+  }
+  const logoutButton = page.getByRole('button', { name: '退出登录' })
+  page.once('dialog', (confirmation) => confirmation.dismiss())
+  await logoutButton.click()
+  await expect(logoutButton).toBeVisible()
+
+  page.once('dialog', (confirmation) => confirmation.accept())
+  await logoutButton.click()
+  await expect(page.getByRole('button', { name: '登录' })).toBeVisible()
 })
 
 test('generates a snippet name when AI is configured', async ({ page }) => {

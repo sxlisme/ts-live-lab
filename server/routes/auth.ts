@@ -6,6 +6,7 @@ import {
   createSession,
   createUser,
   deleteRequestSession,
+  REGISTRATION_UNAVAILABLE_MESSAGE,
   setSessionCookie,
   userForRequest,
   verifyUser,
@@ -13,12 +14,22 @@ import {
 import { credentialsSchema, normalizeUsername } from '../authValidation.js'
 
 const router = Router()
-const authLimiter = rateLimit({
+const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1_000,
   limit: 10,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: { error: { code: 'AUTH_RATE_LIMITED', message: '尝试次数过多，请稍后再试。' } },
+})
+const registrationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1_000,
+  limit: 10,
+  skipSuccessfulRequests: true,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: {
+    error: { code: 'REGISTRATION_UNAVAILABLE', message: REGISTRATION_UNAVAILABLE_MESSAGE },
+  },
 })
 
 function noStore(response: Response) {
@@ -32,7 +43,7 @@ router.get('/session', async (request: Request, response: Response) => {
   response.json({ user })
 })
 
-router.post('/register', authLimiter, async (request: Request, response: Response) => {
+router.post('/register', registrationLimiter, async (request: Request, response: Response) => {
   noStore(response)
   const input = credentialsSchema.parse(request.body)
   const usernameNormalized = normalizeUsername(input.username)
@@ -42,7 +53,7 @@ router.post('/register', authLimiter, async (request: Request, response: Respons
   response.status(201).json({ user })
 })
 
-router.post('/login', authLimiter, async (request: Request, response: Response) => {
+router.post('/login', loginLimiter, async (request: Request, response: Response) => {
   noStore(response)
   const input = credentialsSchema.parse(request.body)
   const user = await verifyUser(normalizeUsername(input.username), input.password)

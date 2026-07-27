@@ -9,12 +9,19 @@ import { ApiError } from './types.js'
 const SESSION_COOKIE = 'typeroom_session'
 const SESSION_MAX_AGE_MS = config.SESSION_TTL_DAYS * 24 * 60 * 60 * 1_000
 const PASSWORD_ROUNDS = config.NODE_ENV === 'test' ? 4 : 12
+const CHINA_STANDARD_TIME_OFFSET_MS = 8 * 60 * 60 * 1_000
+export const REGISTRATION_UNAVAILABLE_MESSAGE = '今日注册人数过多，请明日再试。'
 
 interface UserRow extends QueryResultRow {
   id: string
   username: string
   password_hash: string
   created_at: Date | string
+}
+
+interface RegistrationCountRow extends QueryResultRow {
+  total_count: string
+  daily_count: string
 }
 
 export interface AuthUser {
@@ -35,21 +42,54 @@ export function sessionTokenHash(token: string) {
   return createHash('sha256').update(token).digest('hex')
 }
 
+export function chinaStandardDayRange(now = new Date()) {
+  const shifted = new Date(now.getTime() + CHINA_STANDARD_TIME_OFFSET_MS)
+  const shiftedDayStart = Date.UTC(
+    shifted.getUTCFullYear(),
+    shifted.getUTCMonth(),
+    shifted.getUTCDate(),
+  )
+  const start = new Date(shiftedDayStart - CHINA_STANDARD_TIME_OFFSET_MS)
+  return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1_000) }
+}
+
 export async function createUser(username: string, usernameNormalized: string, password: string) {
-  const passwordHash = await bcrypt.hash(password, PASSWORD_ROUNDS)
+  const client = await database.connect()
   try {
-    const result = await database.query<UserRow>(
+    await client.query('BEGIN')
+    await client.query('SELECT id FROM registration_control WHERE id = 1 FOR UPDATE')
+    const { start, end } = chinaStandardDayRange()
+    const countResult = await client.query<RegistrationCountRow>(
+      `SELECT
+         (SELECT COUNT(*)::text FROM users) AS total_count,
+         (SELECT COUNT(*)::text FROM users WHERE created_at >= $1 AND created_at < $2) AS daily_count`,
+      [start, end],
+    )
+    const counts = countResult.rows[0]!
+    if (
+      Number(counts.daily_count) >= config.DAILY_REGISTRATION_LIMIT ||
+      Number(counts.total_count) >= config.MAX_REGISTERED_USERS
+    ) {
+      throw new ApiError(429, REGISTRATION_UNAVAILABLE_MESSAGE, 'REGISTRATION_UNAVAILABLE')
+    }
+
+    const passwordHash = await bcrypt.hash(password, PASSWORD_ROUNDS)
+    const result = await client.query<UserRow>(
       `INSERT INTO users (id, username, username_normalized, password_hash)
        VALUES ($1, $2, $3, $4)
        RETURNING id, username, password_hash, created_at`,
       [randomUUID(), username, usernameNormalized, passwordHash],
     )
+    await client.query('COMMIT')
     return publicUser(result.rows[0]!)
   } catch (error) {
+    await client.query('ROLLBACK')
     if ((error as { code?: string }).code === '23505') {
       throw new ApiError(409, '该用户名已被使用。', 'USERNAME_TAKEN')
     }
     throw error
+  } finally {
+    client.release()
   }
 }
 

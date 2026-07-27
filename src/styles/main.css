@@ -273,6 +273,11 @@ select:focus-visible {
   background: rgb(255 255 255 / 8%);
 }
 
+.account-user button:disabled {
+  opacity: 0.45;
+  cursor: wait;
+}
+
 .sidebar-collapsed .sidebar-account {
   display: grid;
   place-items: center;

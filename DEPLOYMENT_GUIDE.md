@@ -532,6 +532,8 @@ docker compose up -d --no-build
 | `WEB_PORT`                 | `8787`                                   | 宿主机本地监听端口                   |
 | `POSTGRES_PASSWORD`        | 首次部署生成的长随机十六进制值           | PostgreSQL 密码，初始化后长期保管    |
 | `SESSION_TTL_DAYS`         | `30`                                     | 登录会话有效天数，范围 1–90          |
+| `DAILY_REGISTRATION_LIMIT` | `10`                                     | 按北京时间计算的每日账号创建上限     |
+| `MAX_REGISTERED_USERS`     | `50`                                     | 全站账号总数上限                     |
 | `ALLOWED_ORIGIN`           | `https://ts.example.com`                 | 允许的浏览器来源，多个用逗号分隔     |
 | `TRUST_PROXY`              | `true`                                   | 使用 Nginx 时信任一个反向代理跳数    |
 | `HTTPS_ONLY`               | HTTP 用 `false`，HTTPS 用 `true`         | 是否启用 HSTS 和资源 HTTPS 自动升级  |
@@ -661,6 +663,9 @@ WEB_PORT=8787
 
 # 执行 openssl rand -hex 32 生成，首次启动后不要随意修改
 POSTGRES_PASSWORD=CHANGE_TO_A_LONG_RANDOM_HEX_VALUE
+SESSION_TTL_DAYS=30
+DAILY_REGISTRATION_LIMIT=10
+MAX_REGISTERED_USERS=50
 
 ALLOWED_ORIGIN=http://CHANGE_ME
 TRUST_PROXY=true

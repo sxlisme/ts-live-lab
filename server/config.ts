@@ -23,6 +23,8 @@ const envSchema = z.object({
     .default('false')
     .transform((value) => value === 'true'),
   SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
+  DAILY_REGISTRATION_LIMIT: z.coerce.number().int().min(1).max(1_000).default(10),
+  MAX_REGISTERED_USERS: z.coerce.number().int().min(1).max(100_000).default(50),
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_BASE_URL: z.string().url().default('https://api.anthropic.com'),
   CLAUDE_MODEL: z.string().default('claude-sonnet-4-20250514'),
@@ -37,19 +39,21 @@ const envSchema = z.object({
   AI_ALLOWED_BASE_URLS: z.string().default(''),
 })
 
-const parsed = envSchema.superRefine((value, context) => {
-  if (
-    value.NODE_ENV === 'production' &&
-    value.DATABASE_URL === 'memory:' &&
-    !value.ALLOW_EPHEMERAL_DATABASE
-  ) {
-    context.addIssue({
-      code: 'custom',
-      path: ['DATABASE_URL'],
-      message: '生产环境必须配置持久化 PostgreSQL DATABASE_URL。',
-    })
-  }
-}).safeParse(process.env)
+const parsed = envSchema
+  .superRefine((value, context) => {
+    if (
+      value.NODE_ENV === 'production' &&
+      value.DATABASE_URL === 'memory:' &&
+      !value.ALLOW_EPHEMERAL_DATABASE
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['DATABASE_URL'],
+        message: '生产环境必须配置持久化 PostgreSQL DATABASE_URL。',
+      })
+    }
+  })
+  .safeParse(process.env)
 if (!parsed.success) {
   console.error('Invalid environment configuration:', parsed.error.flatten().fieldErrors)
   process.exit(1)

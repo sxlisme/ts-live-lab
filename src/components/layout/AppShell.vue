@@ -20,6 +20,7 @@ import { RouterLink, RouterView } from 'vue-router'
 
 const isCollapsed = ref(false)
 const isMobileOpen = ref(false)
+const loggingOut = ref(false)
 const { user, loadSession, logout, openAuthDialog } = useAuth()
 
 const navItems = [
@@ -33,6 +34,19 @@ const navItems = [
 
 function closeMobile() {
   isMobileOpen.value = false
+}
+
+async function confirmLogout() {
+  if (loggingOut.value || !window.confirm('确定退出当前账号吗？')) return
+  loggingOut.value = true
+  try {
+    await logout()
+    closeMobile()
+  } catch {
+    window.alert('退出登录失败，请稍后重试。')
+  } finally {
+    loggingOut.value = false
+  }
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -102,7 +116,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
             type="button"
             title="退出登录"
             aria-label="退出登录"
-            @click="logout"
+            :disabled="loggingOut"
+            @click="confirmLogout"
           >
             <LogOut :size="16" />
           </button>

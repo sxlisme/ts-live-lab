@@ -42,6 +42,12 @@ export async function initializeDatabase(client: DatabasePool = database) {
     )
   `)
   await client.query(`
+    CREATE TABLE IF NOT EXISTS registration_control (
+      id SMALLINT PRIMARY KEY CHECK (id = 1)
+    )
+  `)
+  await client.query('INSERT INTO registration_control (id) VALUES (1) ON CONFLICT (id) DO NOTHING')
+  await client.query(`
     CREATE TABLE IF NOT EXISTS code_snippets (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -54,6 +60,7 @@ export async function initializeDatabase(client: DatabasePool = database) {
   `)
   await client.query('CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id)')
   await client.query('CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions(expires_at)')
+  await client.query('CREATE INDEX IF NOT EXISTS users_created_at_idx ON users(created_at)')
   await client.query(
     'CREATE INDEX IF NOT EXISTS code_snippets_user_updated_idx ON code_snippets(user_id, updated_at DESC)',
   )

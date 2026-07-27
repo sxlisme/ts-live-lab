@@ -124,6 +124,8 @@ docker compose logs -f --tail=100 app
 | `DATABASE_URL`             | 开发环境为内存数据库        | PostgreSQL 连接地址，生产环境必须配置            |
 | `DATABASE_SSL`             | `false`                     | 连接云数据库时是否校验证书 TLS                   |
 | `SESSION_TTL_DAYS`         | `30`                        | 登录会话有效天数，范围 1–90                      |
+| `DAILY_REGISTRATION_LIMIT` | `10`                        | 按北京时间计算的每日账号创建上限                 |
+| `MAX_REGISTERED_USERS`     | `50`                        | 全站账号总数上限                                 |
 | `PORT`                     | `8787`                      | 容器内 API 和生产页面端口                        |
 | `HOST`                     | `127.0.0.1`                 | Node.js API 监听地址，Compose 会覆盖为 `0.0.0.0` |
 | `ANTHROPIC_API_KEY`        | 空                          | 服务器持有的 Claude 或兼容接口 Key               |
