@@ -1,10 +1,102 @@
+import { readFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
+
+interface PackageManifest {
+  version: string
+}
+
+interface PackageLock {
+  packages?: Record<string, { version?: string }>
+}
+
+const packageManifest = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+) as PackageManifest
+const packageLock = JSON.parse(
+  readFileSync(new URL('../package-lock.json', import.meta.url), 'utf8'),
+) as PackageLock
+
+function installedVersion(packageName: string) {
+  const version = packageLock.packages?.[`node_modules/${packageName}`]?.version
+  if (!version) throw new Error(`Missing installed version for ${packageName}`)
+  return version
+}
 
 test('runs TypeScript and streams output', async ({ page }, testInfo) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'TS / JS 运行台' })).toBeVisible()
   await expect(page.locator('.console-body')).toContainText('TypeScript: 100', { timeout: 15_000 })
   await page.screenshot({ path: testInfo.outputPath('playground.png'), fullPage: true })
+})
+
+test('highlights TypeScript errors and prevents execution', async ({ page }, testInfo) => {
+  await page.goto('/')
+  const editor = page.locator('.cm-content')
+  await editor.click()
+  await page.keyboard.press('ControlOrMeta+A')
+  await page.keyboard.insertText(
+    `const label = 'age'\nconst age: number = '18'\nconsole.log(label, age)`,
+  )
+
+  const typeError = page.locator('.cm-lintRange-error')
+  await expect(typeError).toHaveCount(1, { timeout: 10_000 })
+  await expect(page.locator('.cm-lint-marker-error')).toHaveCount(1)
+  if (!testInfo.project.name.includes('mobile')) {
+    await typeError.hover()
+    await expect(page.locator('.cm-tooltip-lint')).toContainText(
+      "Type 'string' is not assignable to type 'number'.",
+    )
+  }
+  await expect(page.locator('.diagnostics')).toContainText('TS2322', { timeout: 10_000 })
+  await expect(page.locator('.console-line')).toHaveCount(0)
+
+  await editor.click()
+  await page.keyboard.press('ControlOrMeta+A')
+  await page.keyboard.insertText(
+    `const label = 'age'\nconst age: number = 18\nconsole.log(label, age)`,
+  )
+
+  await expect(typeError).toHaveCount(0, { timeout: 10_000 })
+  await expect(page.locator('.console-body')).toContainText('age 18', { timeout: 10_000 })
+})
+
+test('formats runner code and routes the save shortcut into the app', async ({ page }) => {
+  await page.goto('/')
+  const editor = page.locator('.cm-content')
+  await editor.click()
+  await page.keyboard.press('ControlOrMeta+A')
+  await page.keyboard.insertText('type User={name:string};const user:User={name:"Ada"}')
+
+  await page.getByRole('button', { name: '格式化代码' }).click()
+  await expect(page.getByRole('status')).toContainText('代码已格式化')
+  await expect(page.locator('.cm-line')).toHaveText([
+    'type User = { name: string }',
+    "const user: User = { name: 'Ada' }",
+    '',
+  ])
+
+  await page.keyboard.press('ControlOrMeta+S')
+  await expect(page.getByRole('dialog', { name: '登录 TypeRoom' })).toBeVisible()
+})
+
+test('shows the current build and installed dependency versions', async ({ page }) => {
+  await page.goto('/about')
+  await expect(page.getByRole('heading', { name: '关于 TypeRoom' })).toBeVisible()
+  await expect(page.locator('.version-badge')).toHaveText(`v${packageManifest.version}`)
+  await expect(page.locator('.build-details')).toContainText('本次构建')
+  await expect(page.getByRole('link', { name: /sxlisme$/ })).toHaveAttribute(
+    'href',
+    'https://github.com/sxlisme',
+  )
+  await expect(page.getByRole('link', { name: /sxlisme\/ts-live-lab/ })).toHaveAttribute(
+    'href',
+    'https://github.com/sxlisme/ts-live-lab',
+  )
+  await expect(page.locator('.dependency-row')).toHaveCount(14)
+  await expect(page.locator('.dependencies-panel')).toContainText('Vue')
+  await expect(page.locator('.dependencies-panel')).toContainText(installedVersion('vue'))
+  await expect(page.locator('.dependencies-panel')).toContainText('Prettier')
+  await expect(page.locator('.dependencies-panel')).toContainText(installedVersion('prettier'))
 })
 
 test('terminates an infinite loop without freezing the page', async ({ page }) => {

@@ -1,9 +1,19 @@
 <script setup lang="ts">
-import type { EditorLanguage } from '@/types/runner'
+import type {
+  EditorLanguage,
+  TypeDiagnosticsWorkerRequest,
+  TypeDiagnosticsWorkerResponse,
+} from '@/types/runner'
 import { css } from '@codemirror/lang-css'
 import { html } from '@codemirror/lang-html'
 import { javascript } from '@codemirror/lang-javascript'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
+import {
+  lintGutter,
+  lintKeymap,
+  linter,
+  type Diagnostic as CodeMirrorDiagnostic,
+} from '@codemirror/lint'
 import { EditorState } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { tags } from '@lezer/highlight'
@@ -31,6 +41,12 @@ const emit = defineEmits<{
 
 const editorHost = ref<HTMLDivElement | null>(null)
 let view: EditorView | null = null
+let diagnosticsWorker: Worker | null = null
+let diagnosticRequestId = 0
+const pendingDiagnostics = new Map<
+  number,
+  (diagnostics: readonly CodeMirrorDiagnostic[]) => void
+>()
 
 const editorTheme = EditorView.theme(
   {
@@ -61,6 +77,18 @@ const editorTheme = EditorView.theme(
     '.cm-cursor': { borderLeftColor: '#9fe3c2' },
     '.cm-scroller': { overflow: 'auto' },
     '.cm-tooltip': { border: '1px solid #39483f', backgroundColor: '#1a241e' },
+    '.cm-tooltip-lint': { maxWidth: 'min(520px, calc(100vw - 32px))' },
+    '.cm-diagnosticText': {
+      color: '#eef4f0',
+      fontFamily: "'DM Sans', system-ui, sans-serif",
+      lineHeight: '1.5',
+    },
+    '.cm-lintRange-error': {
+      backgroundImage: 'none',
+      textDecoration: 'underline wavy #ff716a',
+      textDecorationThickness: '1.5px',
+      textUnderlineOffset: '3px',
+    },
   },
   { dark: true },
 )
@@ -94,11 +122,14 @@ function createState(document: string) {
     extensions: [
       basicSetup,
       languageExtension(props.language),
+      linter(requestDiagnostics, { delay: 350 }),
+      lintGutter({ hoverTime: 150 }),
       editorTheme,
       syntaxHighlighting(editorHighlightStyle),
       EditorState.readOnly.of(props.readOnly),
       EditorView.contentAttributes.of({ 'aria-label': props.ariaLabel }),
       keymap.of([
+        ...lintKeymap,
         {
           key: 'Mod-Enter',
           run: () => {
@@ -111,6 +142,49 @@ function createState(document: string) {
         if (update.docChanged) emit('update:modelValue', update.state.doc.toString())
       }),
     ],
+  })
+}
+
+function requestDiagnostics(editor: EditorView): Promise<readonly CodeMirrorDiagnostic[]> {
+  if (props.language !== 'typescript' && props.language !== 'javascript') {
+    return Promise.resolve([])
+  }
+
+  if (!diagnosticsWorker) {
+    diagnosticsWorker = new Worker(new URL('../../workers/typeDiagnostics.worker.ts', import.meta.url), {
+      type: 'module',
+    })
+    diagnosticsWorker.onmessage = (event: MessageEvent<TypeDiagnosticsWorkerResponse>) => {
+      const response = event.data
+      const resolve = pendingDiagnostics.get(response.requestId)
+      if (!resolve) return
+      pendingDiagnostics.delete(response.requestId)
+      resolve(
+        response.diagnostics.map((item) => ({
+          from: item.from,
+          to: item.to,
+          severity: 'error',
+          source: `TypeScript TS${item.code}`,
+          message: item.message,
+        })),
+      )
+    }
+    diagnosticsWorker.onerror = () => {
+      for (const resolve of pendingDiagnostics.values()) resolve([])
+      pendingDiagnostics.clear()
+    }
+  }
+
+  const requestId = ++diagnosticRequestId
+  return new Promise((resolve) => {
+    pendingDiagnostics.set(requestId, resolve)
+    const request: TypeDiagnosticsWorkerRequest = {
+      type: 'check',
+      requestId,
+      code: editor.state.doc.toString(),
+      language: props.language,
+    }
+    diagnosticsWorker!.postMessage(request)
   })
 }
 
@@ -142,7 +216,12 @@ watch(
   },
 )
 
-onBeforeUnmount(() => view?.destroy())
+onBeforeUnmount(() => {
+  view?.destroy()
+  diagnosticsWorker?.terminate()
+  for (const resolve of pendingDiagnostics.values()) resolve([])
+  pendingDiagnostics.clear()
+})
 </script>
 
 <template>

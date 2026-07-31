@@ -8,6 +8,7 @@ import {
   Code2,
   LayoutPanelTop,
   Library,
+  Info,
   Menu,
   LogIn,
   LogOut,
@@ -30,6 +31,7 @@ const navItems = [
   { to: '/practice', label: '面试练习', icon: Braces },
   { to: '/docs', label: 'TS 文档', icon: BookOpenText },
   { to: '/settings', label: 'AI 配置', icon: Bot },
+  { to: '/about', label: '关于', icon: Info },
 ]
 
 function closeMobile() {

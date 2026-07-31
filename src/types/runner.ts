@@ -23,3 +23,25 @@ export interface WorkerRequest {
   code: string
   language: RunnerLanguage
 }
+
+export interface TypeDiagnostic {
+  from: number
+  to: number
+  line: number
+  column: number
+  code: number
+  message: string
+}
+
+export interface TypeDiagnosticsWorkerRequest {
+  type: 'check'
+  requestId: number
+  code: string
+  language: EditorLanguage
+}
+
+export interface TypeDiagnosticsWorkerResponse {
+  type: 'diagnostics'
+  requestId: number
+  diagnostics: TypeDiagnostic[]
+}

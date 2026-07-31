@@ -39,6 +39,12 @@ export const router = createRouter({
       component: () => import('@/views/SettingsView.vue'),
       meta: { title: 'AI 配置' },
     },
+    {
+      path: '/about',
+      name: 'about',
+      component: () => import('@/views/AboutView.vue'),
+      meta: { title: '关于' },
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
   scrollBehavior: () => ({ top: 0 }),

@@ -2,6 +2,7 @@
 
 import ts from 'typescript'
 import { inspectSourceRestrictions } from '@/domain/runner/security'
+import { TypeScriptDiagnosticsService } from '@/domain/runner/typeDiagnostics'
 import type { ConsoleEntry, ConsoleLevel, WorkerRequest, WorkerResponse } from '@/types/runner'
 
 const workerScope = self as DedicatedWorkerGlobalScope
@@ -11,6 +12,7 @@ const MAX_OUTPUT_LENGTH = 4_000
 const MAX_SOURCE_LENGTH = 50_000
 let logSequence = 0
 let logCount = 0
+const typeScriptDiagnostics = new TypeScriptDiagnosticsService()
 
 function post(message: WorkerResponse) {
   safePostMessage(message)
@@ -124,6 +126,21 @@ workerScope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       diagnostics: forbidden,
     })
     return
+  }
+
+  if (language === 'typescript') {
+    const typeErrors = typeScriptDiagnostics.getDiagnostics(code, language)
+    if (typeErrors.length > 0) {
+      post({
+        type: 'error',
+        runId,
+        message: '编译失败，请先修复 TypeScript 错误。',
+        diagnostics: typeErrors.map(
+          (item) => `第 ${item.line} 行，第 ${item.column} 列：${item.message} (TS${item.code})`,
+        ),
+      })
+      return
+    }
   }
 
   const result = ts.transpileModule(code, {

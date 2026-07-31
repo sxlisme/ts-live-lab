@@ -11,11 +11,16 @@ import { playgroundSamples } from '@/data/playgroundSamples'
 import { suggestLocalSnippetName, validateSnippetDraft } from '@/domain/snippets/codeSnippets'
 import { ApiClientError } from '@/services/api'
 import { requestSnippetName } from '@/services/aiReview'
+import { formatRunnerCode } from '@/services/codeFormatter'
 import type { RunnerLanguage } from '@/types/runner'
 import { useDebounceFn, useLocalStorage } from '@vueuse/core'
 import {
+  AlignLeft,
   BookmarkCheck,
+  CircleAlert,
+  CircleCheck,
   Library,
+  LoaderCircle,
   Play,
   RotateCcw,
   Save,
@@ -47,7 +52,8 @@ const snippetNameInput = ref<HTMLInputElement | null>(null)
 const saveError = ref('')
 const namingWithAi = ref(false)
 const savingSnippet = ref(false)
-const saveNotice = ref('')
+const formatting = ref(false)
+const pageNotice = ref<{ type: 'success' | 'error'; text: string } | null>(null)
 const resumeSaveAfterAuth = ref(false)
 const pendingSnippetId = ref('')
 let noticeTimeoutId: number | null = null
@@ -119,6 +125,26 @@ function resetEditor() {
   language.value = initialSample.language
 }
 
+async function formatCurrentCode() {
+  if (formatting.value || !code.value.trim()) return
+  const source = code.value
+  formatting.value = true
+  try {
+    const formatted = await formatRunnerCode(source, language.value)
+    if (code.value !== source) {
+      showNotice('代码已发生变化，请重新格式化。', 'error')
+      return
+    }
+    code.value = formatted
+    showNotice(formatted === source ? '代码格式已经是最新样式' : '代码已格式化')
+  } catch (error) {
+    const detail = error instanceof Error ? error.message.split('\n')[0] : '请检查语法后重试。'
+    showNotice(`格式化失败：${detail}`, 'error')
+  } finally {
+    formatting.value = false
+  }
+}
+
 function showSaveDialog() {
   snippetName.value =
     activeSnippet.value?.name ?? suggestLocalSnippetName(code.value, language.value)
@@ -146,11 +172,11 @@ function closeSaveDialog() {
   saveError.value = ''
 }
 
-function showSaveNotice(text: string) {
-  saveNotice.value = text
+function showNotice(text: string, type: 'success' | 'error' = 'success') {
+  pageNotice.value = { text, type }
   if (noticeTimeoutId !== null) window.clearTimeout(noticeTimeoutId)
   noticeTimeoutId = window.setTimeout(() => {
-    saveNotice.value = ''
+    pageNotice.value = null
     noticeTimeoutId = null
   }, 3_000)
 }
@@ -171,7 +197,7 @@ async function persistSnippet() {
       name: 'playground',
       query: { ...route.query, snippet: saved.id },
     })
-    showSaveNotice(wasUpdate ? '片段已更新' : '片段已保存')
+    showNotice(wasUpdate ? '片段已更新' : '片段已保存')
   } catch (error) {
     if (error instanceof ApiClientError && error.status === 401) {
       expireSession()
@@ -204,6 +230,11 @@ async function generateNameWithAi() {
 }
 
 function onKeydown(event: KeyboardEvent) {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+    event.preventDefault()
+    if (!event.repeat && !saveDialogOpen.value) void openSaveDialog()
+    return
+  }
   if (event.key === 'Escape' && saveDialogOpen.value) closeSaveDialog()
 }
 
@@ -298,6 +329,17 @@ onUnmounted(() => {
           >
             <Library :size="16" />
           </RouterLink>
+          <button
+            class="toolbar-icon"
+            type="button"
+            title="格式化代码"
+            aria-label="格式化代码"
+            :disabled="formatting || !code.trim()"
+            @click="formatCurrentCode"
+          >
+            <LoaderCircle v-if="formatting" class="format-spinner" :size="16" />
+            <AlignLeft v-else :size="16" />
+          </button>
           <button
             class="toolbar-icon"
             type="button"
@@ -407,8 +449,10 @@ onUnmounted(() => {
       </Transition>
 
       <Transition name="notice-fade">
-        <div v-if="saveNotice" class="save-notice" role="status">
-          <BookmarkCheck :size="17" />{{ saveNotice }}
+        <div v-if="pageNotice" class="save-notice" :class="pageNotice.type" role="status">
+          <CircleAlert v-if="pageNotice.type === 'error'" :size="17" />
+          <CircleCheck v-else :size="17" />
+          {{ pageNotice.text }}
         </div>
       </Transition>
     </Teleport>
@@ -580,6 +624,15 @@ onUnmounted(() => {
   background: var(--surface-muted);
 }
 
+.toolbar-icon:disabled {
+  opacity: 0.48;
+  cursor: wait;
+}
+
+.format-spinner {
+  animation: spin 700ms linear infinite;
+}
+
 .save-snippet-button {
   display: inline-flex;
   height: 36px;
@@ -683,6 +736,10 @@ onUnmounted(() => {
 .save-notice {
   display: flex;
   align-items: center;
+}
+
+.save-notice.error {
+  background: #9d3322;
 }
 
 .snippet-dialog header {
